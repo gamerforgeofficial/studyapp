@@ -20,7 +20,8 @@ button{border:0;border-radius:12px;padding:12px 18px;font-weight:700;cursor:poin
 .log{margin-top:12px;max-height:min(38vh,240px);overflow:auto}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:9px;font-size:14px}
 .item+.item{margin-top:6px}
-</style></head><body>
+</style><link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f1220"></head><body>
 <div class="app">
 <div class="top"><div><h1>⏱️ Study Hour Counter</h1><p class="muted">Landscape-friendly • Timer aur manual time entry</p></div><button class="theme" onclick="toggleTheme()" id="themeBtn">☀️ Light</button></div>
 <div class="main">
@@ -45,4 +46,26 @@ function toggleTheme(){D.theme=D.theme==='dark'?'light':'dark';save();applyTheme
 function applyTheme(){document.body.classList.toggle('light',D.theme==='light');$('themeBtn').textContent=D.theme==='light'?'🌙 Dark':'☀️ Light'}
 function render(){const t=today();const todayMin=D.logs.filter(x=>x.date===t).reduce((a,b)=>a+b.minutes,0);const total=D.logs.reduce((a,b)=>a+b.minutes,0);$('today').textContent=hm(todayMin);$('total').textContent=hm(total);$('log').innerHTML=D.logs.slice(0,30).map((x,i)=>`<div class="item"><span>${x.date} • ${x.at}</span><span><b>${hm(x.minutes)}</b> <button class="reset" onclick="del(${i})">✕</button></span></div>`).join('')||'<p class="muted">Abhi koi session record nahi hua.</p>'}
 applyTheme();render();
+
+</script><button id="installBtn" style="display:none">📲 Install App</button>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
+
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installBtn").style.display = "block";
+});
+
+document.getElementById("installBtn").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById("installBtn").style.display = "none";
+});
 </script></body></html>
