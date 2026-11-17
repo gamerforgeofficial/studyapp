@@ -1,0 +1,48 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Hour Counter</title>
+<style>
+:root{--bg:#0f1220;--card:#171b2e;--card2:#1e2338;--txt:#eef1ff;--mut:#9aa3c7;--acc:#6c8cff;--ok:#31c48d;--bad:#ff5d73;--border:#2a3050}
+body.light{--bg:#f3f5fb;--card:#fff;--card2:#eef1f9;--txt:#161b2c;--mut:#5c6480;--acc:#3b5bdb;--ok:#0f9d63;--bad:#d64560;--border:#d8def0}
+*{box-sizing:border-box;font-family:Inter,system-ui,Arial}body{margin:0;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:10px}
+.app{width:min(960px,100%);background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:18px}.muted{color:var(--mut);font-size:12px;margin:4px 0 0}
+.theme{background:var(--card2);color:var(--txt);border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer}
+.main{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+@media(max-width:760px){.main{grid-template-columns:1fr}}
+.time{font-size:min(15vw,84px);font-weight:800;text-align:center;letter-spacing:2px;line-height:1;margin:6px 0}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+button{border:0;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
+.start{background:var(--ok);color:#fff}.pause{background:var(--acc);color:#fff}.reset{background:var(--card2);color:var(--txt);border:1px solid var(--border)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.stat{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}.stat b{display:block;font-size:22px}
+.add{display:flex;gap:8px;margin-top:14px}input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--border);color:var(--txt);border-radius:10px;padding:10px}
+.addbtn{background:var(--acc);color:#fff}
+.log{margin-top:12px;max-height:min(38vh,240px);overflow:auto}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:9px;font-size:14px}
+.item+.item{margin-top:6px}
+</style></head><body>
+<div class="app">
+<div class="top"><div><h1>⏱️ Study Hour Counter</h1><p class="muted">Landscape-friendly • Timer aur manual time entry</p></div><button class="theme" onclick="toggleTheme()" id="themeBtn">☀️ Light</button></div>
+<div class="main">
+<div><div class="time" id="clock">00:00:00</div><div class="row"><button class="start" id="startBtn" onclick="start()">▶️ Start</button><button class="pause" onclick="pause()">⏸️ Pause</button><button class="reset" onclick="reset()">↩️ Reset</button></div>
+<div class="add"><input id="mins" type="number" inputmode="numeric" placeholder="Manual minutes add karo"><button class="addbtn" onclick="addManual()">Add</button></div></div>
+<div><div class="stats"><div class="stat"><b id="today">0h 0m</b><span class="muted">Aaj</span></div><div class="stat"><b id="total">0h 0m</b><span class="muted">Total</span></div></div><div class="log" id="log"></div></div>
+</div></div>
+<script>
+let seconds=0,running=false,t=null;const K='study_hour_counter';let D=JSON.parse(localStorage.getItem(K)||'{"logs":[],"theme":"dark"}');
+const $=i=>document.getElementById(i);
+function save(){localStorage.setItem(K,JSON.stringify(D))}
+function today(){return new Date().toISOString().slice(0,10)}
+function fmt(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0')}
+function hm(m){return Math.floor(m/60)+'h '+(m%60)+'m'}
+function start(){if(running)return;running=true;$('startBtn').textContent='⏸️ Pause';t=setInterval(()=>{seconds++;$('clock').textContent=fmt(seconds)},1000)}
+function pause(){running=false;clearInterval(t);$('startBtn').textContent='▶️ Start';if(seconds>0)add(seconds)}
+function reset(){running=false;clearInterval(t);seconds=0;$('clock').textContent=fmt(0);$('startBtn').textContent='▶️ Start'}
+function add(sec){const m=Math.round(sec/60);if(m<1)return;D.logs.unshift({date:today(),minutes:m,at:new Date().toLocaleTimeString('en-IN')});save();render()}
+function addManual(){const m=parseInt($('mins').value);if(!m||m<1)return;D.logs.unshift({date:today(),minutes:m,at:'Manual'});$('mins').value='';save();render()}
+function del(i){D.logs.splice(i,1);save();render()}
+function toggleTheme(){D.theme=D.theme==='dark'?'light':'dark';save();applyTheme()}
+function applyTheme(){document.body.classList.toggle('light',D.theme==='light');$('themeBtn').textContent=D.theme==='light'?'🌙 Dark':'☀️ Light'}
+function render(){const t=today();const todayMin=D.logs.filter(x=>x.date===t).reduce((a,b)=>a+b.minutes,0);const total=D.logs.reduce((a,b)=>a+b.minutes,0);$('today').textContent=hm(todayMin);$('total').textContent=hm(total);$('log').innerHTML=D.logs.slice(0,30).map((x,i)=>`<div class="item"><span>${x.date} • ${x.at}</span><span><b>${hm(x.minutes)}</b> <button class="reset" onclick="del(${i})">✕</button></span></div>`).join('')||'<p class="muted">Abhi koi session record nahi hua.</p>'}
+applyTheme();render();
+</script></body></html>
