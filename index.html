@@ -81,9 +81,58 @@ h2{margin:0;font-size:15px;font-weight:700}
 .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .toast button{padding:6px 10px;font-weight:700;color:var(--acc);background:transparent;border:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- Responsive: phone vs desktop ---------- */
+.tabbar{display:none}
+.kbd{display:none}
+@media (min-width:761px){
+  body{padding:28px 24px}
+  .app{width:min(1080px,100%);padding:clamp(22px,2.4vw,32px)}
+  h1{font-size:22px}
+  .main{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:36px;margin-top:26px}
+  .dial{width:min(340px,100%)}
+  .clock{font-size:clamp(40px,4vw,60px)}
+  .log{max-height:min(62vh,560px)}
+  .kbd{display:block;text-align:center;color:var(--mut);font-size:12.5px;margin:16px 0 0}
+  .kbd kbd{font:inherit;font-size:12px;border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:var(--card2);color:var(--txt)}
+  @media (hover:hover){
+    button:not(:disabled):hover{filter:brightness(1.08)}
+    .item:hover{border-color:var(--acc)}
+  }
+}
+@media (max-width:760px){
+  body{padding:0;display:block;background:var(--bg)}
+  .app{width:100%;min-height:100vh;border:0;border-radius:0;box-shadow:none;background:transparent;padding:calc(14px + env(safe-area-inset-top)) 16px calc(104px + env(safe-area-inset-bottom))}
+  .top .muted{display:none}
+  h1{font-size:18px}
+  .tools button{padding:9px 12px;font-size:14px}
+  .main{display:block;margin-top:12px}
+  body[data-tab="timer"] aside,
+  body[data-tab="stats"] section,
+  body[data-tab="hist"] section{display:none}
+  body[data-tab="stats"] .pane-hist,
+  body[data-tab="hist"] aside>:not(.pane-hist){display:none}
+  .dial{width:min(76vw,320px)}
+  .controls{gap:10px}
+  .controls button{flex:1 1 0;min-height:52px;font-size:16px;padding:12px 10px}
+  #startBtn{flex:1.4 1 0}
+  .seg{width:100%;max-width:340px}
+  .seg button{flex:1;min-height:44px}
+  .subj,.manual input,.manual button{min-height:48px;font-size:16px}
+  .manual button{padding:12px 16px}
+  .card{padding:14px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .item{padding:12px}
+  button.icon{min-width:40px;min-height:40px}
+  .toast{bottom:calc(88px + env(safe-area-inset-bottom))}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--card);border-top:1px solid var(--border);padding:6px 8px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:transparent;color:var(--mut);padding:8px 4px;border-radius:12px;font-size:20px;line-height:1.1}
+  .tab span{font-size:12px;font-weight:650}
+  .tab[aria-pressed="true"]{color:var(--acc);background:var(--card2)}
+}
 </style>
 </head>
-<body>
+<body data-tab="timer">
 <main class="app">
   <header class="top">
     <div>
@@ -136,6 +185,7 @@ h2{margin:0;font-size:15px;font-weight:700}
         <input id="mdate" type="date" aria-label="Date for manual entry">
         <button type="submit" class="active">➕ Add</button>
       </form>
+      <p class="kbd"><kbd>Space</kbd> start / pause</p>
     </section>
 
     <aside aria-label="Stats and history">
@@ -168,15 +218,21 @@ h2{margin:0;font-size:15px;font-weight:700}
         <div class="subwk" id="subWeek"></div>
       </div>
 
-      <div class="hist-head">
+      <div class="hist-head pane-hist">
         <h2>History</h2>
         <span class="muted" id="count"></span>
         <button type="button" class="csv" id="csvBtn">⬇️ CSV</button>
       </div>
-      <div class="log" id="log"></div>
+      <div class="log pane-hist" id="log"></div>
     </aside>
   </div>
 </main>
+
+<nav class="tabbar" aria-label="Sections">
+  <button type="button" class="tab" data-tab="timer" aria-pressed="true">⏱️<span>Timer</span></button>
+  <button type="button" class="tab" data-tab="stats" aria-pressed="false">📊<span>Stats</span></button>
+  <button type="button" class="tab" data-tab="hist" aria-pressed="false">📚<span>History</span></button>
+</nav>
 
 <div class="toast" id="toast" role="status" aria-live="polite">
   <span id="toastMsg"></span>
@@ -204,6 +260,8 @@ h2{margin:0;font-size:15px;font-weight:700}
   const dayLabel = k => k === dayKey() ? 'Aaj' : k === daysAgo(1) ? 'Kal' : parseDay(k).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   const subj = () => ($('sub').value.trim() || 'General').slice(0, 30);
   const systemLight = matchMedia('(prefers-color-scheme: light)');
+  const isPhone = () => matchMedia('(max-width:760px)').matches;
+  const touch = () => matchMedia('(pointer:coarse)').matches;
 
   // ---- data ----
   let D = read(KEY, {});
@@ -220,7 +278,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   if (!Number.isFinite(D.foc)) D.foc = 25;
   if (!Number.isFinite(D.brk)) D.brk = 5;
   if (!D.mode) D.mode = 'sw';
-  if (D.wake === undefined) D.wake = true;
+  if (D.wake === undefined) D.wake = isPhone();
   D.exam = D.exam || { name: '', date: '' };
   const persist = () => write(KEY, D);
 
@@ -283,7 +341,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     $('pomoSet').hidden = D.mode !== 'pomo';
     $('status').textContent = running ? (D.mode === 'pomo' ? 'Focus chal raha hai. Bas padho 📚' : 'Study chal raha hai. Focus rakho 📚')
       : s ? 'Paused. Save karo ya Start karke continue karo'
-      : 'Start dabao ya Space press karo';
+      : touch() ? 'Start dabao, timer chalega' : 'Start dabao ya Space press karo';
     keepAwake();
     paint();
   }
@@ -337,6 +395,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   function beep() {
     try {
       audio();
+      if (touch()) navigator.vibrate?.([300, 150, 300]);
       [0, 0.4, 0.8].forEach(t => {
         const o = actx.createOscillator(), g = actx.createGain();
         o.frequency.value = 880;
@@ -563,6 +622,13 @@ h2{margin:0;font-size:15px;font-weight:700}
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ---- phone tabs ----
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+    document.body.dataset.tab = b.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
 
   // ---- init ----
   $('mdate').value = dayKey();
