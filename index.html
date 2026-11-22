@@ -1,71 +1,584 @@
-<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Hour Counter</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Study Hour Counter</title>
+<meta name="description" content="Study timer with Pomodoro, subjects, streaks, exam countdown and CSV export. Works offline.">
+<meta name="theme-color" content="#0e1116" id="metaTheme">
+<link rel="manifest" href="/manifest.json">
 <style>
-:root{--bg:#0f1220;--card:#171b2e;--card2:#1e2338;--txt:#eef1ff;--mut:#9aa3c7;--acc:#6c8cff;--ok:#31c48d;--bad:#ff5d73;--border:#2a3050}
-body.light{--bg:#f3f5fb;--card:#fff;--card2:#eef1f9;--txt:#161b2c;--mut:#5c6480;--acc:#3b5bdb;--ok:#0f9d63;--bad:#d64560;--border:#d8def0}
-*{box-sizing:border-box;font-family:Inter,system-ui,Arial}body{margin:0;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:10px}
-.app{width:min(960px,100%);background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-h1{margin:0;font-size:18px}.muted{color:var(--mut);font-size:12px;margin:4px 0 0}
-.theme{background:var(--card2);color:var(--txt);border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer}
-.main{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
-@media(max-width:760px){.main{grid-template-columns:1fr}}
-.time{font-size:min(15vw,84px);font-weight:800;text-align:center;letter-spacing:2px;line-height:1;margin:6px 0}
-.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-button{border:0;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
-.start{background:var(--ok);color:#fff}.pause{background:var(--acc);color:#fff}.reset{background:var(--card2);color:var(--txt);border:1px solid var(--border)}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-.stat{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}.stat b{display:block;font-size:22px}
-.add{display:flex;gap:8px;margin-top:14px}input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--border);color:var(--txt);border-radius:10px;padding:10px}
-.addbtn{background:var(--acc);color:#fff}
-.log{margin-top:12px;max-height:min(38vh,240px);overflow:auto}
-.item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:9px;font-size:14px}
-.item+.item{margin-top:6px}
-</style><link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0f1220"></head><body>
-<div class="app">
-<div class="top"><div><h1>⏱️ Study Hour Counter</h1><p class="muted">Landscape-friendly • Timer aur manual time entry</p></div><button class="theme" onclick="toggleTheme()" id="themeBtn">☀️ Light</button></div>
-<div class="main">
-<div><div class="time" id="clock">00:00:00</div><div class="row"><button class="start" id="startBtn" onclick="start()">▶️ Start</button><button class="pause" onclick="pause()">⏸️ Pause</button><button class="reset" onclick="reset()">↩️ Reset</button></div>
-<div class="add"><input id="mins" type="number" inputmode="numeric" placeholder="Manual minutes add karo"><button class="addbtn" onclick="addManual()">Add</button></div></div>
-<div><div class="stats"><div class="stat"><b id="today">0h 0m</b><span class="muted">Aaj</span></div><div class="stat"><b id="total">0h 0m</b><span class="muted">Total</span></div></div><div class="log" id="log"></div></div>
-</div></div>
+:root{--bg:#0e1116;--card:#161a22;--card2:#1d222c;--txt:#eceef3;--mut:#8b93a7;--acc:#f5b041;--acc-txt:#1a1205;--ok:#7fb89a;--ok-txt:#0d1a12;--bad:#e8707c;--border:#2a303c;--shadow:0 16px 40px rgba(0,0,0,.35);color-scheme:dark}
+:root[data-theme="light"]{--bg:#f6f4ef;--card:#fff;--card2:#f1eee7;--txt:#1c1f26;--mut:#646b7b;--acc:#d98a12;--acc-txt:#1c1205;--ok:#3f7d5c;--ok-txt:#fff;--bad:#c2414f;--border:#dcd8cd;--shadow:0 16px 40px rgba(60,50,30,.10);color-scheme:light}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));background:var(--bg);color:var(--txt);font:15px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--border);border-radius:12px;padding:11px 18px;font-weight:650;background:var(--card2);color:var(--txt);transition:transform .08s,opacity .15s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+button.primary{background:var(--ok);color:var(--ok-txt);border-color:transparent}
+button.active{background:var(--acc);color:var(--acc-txt);border-color:transparent}
+button.icon{padding:4px 9px;border:0;background:transparent;color:var(--mut);font-size:15px;border-radius:8px}
+button.icon:hover{color:var(--bad);background:var(--card2)}
+input{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:0}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.app{width:min(960px,100%);background:var(--card);border:1px solid var(--border);border-radius:22px;padding:clamp(16px,3vw,26px);box-shadow:var(--shadow)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em}
+h2{margin:0;font-size:15px;font-weight:700}
+.muted{color:var(--mut);font-size:13px;margin:4px 0 0}
+.tools{display:flex;gap:8px}
+.install{font-size:14px}
+.main{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;margin-top:20px}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+.seg{display:flex;gap:4px;background:var(--card2);padding:4px;border-radius:14px;border:1px solid var(--border);width:fit-content;margin:0 auto}
+.seg button{border:0;background:transparent;color:var(--mut);padding:8px 14px;border-radius:10px}
+.seg button[aria-pressed="true"]{background:var(--acc);color:var(--acc-txt)}
+.subj{display:block;width:100%;margin-top:16px;text-align:center}
+.dial{position:relative;width:min(70vw,290px);aspect-ratio:1;margin:10px auto 0;display:grid;place-items:center}
+.ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:2.5}
+.track{stroke:var(--border)}
+.prog{stroke:var(--acc);stroke-linecap:round;stroke-dasharray:100 100;stroke-dashoffset:100;transition:stroke-dashoffset .5s ease}
+.clock{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-weight:600;font-size:clamp(32px,10.5vw,52px);letter-spacing:.02em;font-variant-numeric:tabular-nums;text-align:center}
+.phase{text-align:center;font-weight:650;margin:6px 0 0;min-height:1.4em}
+.status{text-align:center;color:var(--mut);font-size:14px;min-height:1.4em;margin:4px 0 0}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.pomoset{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:14px;font-size:14px;align-items:center}
+.pomoset input{width:74px;padding:7px 9px;margin-left:6px}
+.check{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:16px;font-size:14px}
+.hint{text-align:center;color:var(--mut);font-size:12.5px;margin:6px auto 0;max-width:42ch}
+.manual{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.manual input[type=number]{flex:1 1 120px}
+.manual input[type=date]{flex:1 1 150px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:11px 6px;text-align:center}
+.stat b{display:block;font-size:clamp(16px,2.4vw,20px);font-variant-numeric:tabular-nums}
+.stat span{color:var(--mut);font-size:12px}
+.card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;margin-top:10px}
+.line{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px}
+.line input[type=number]{width:84px;padding:7px 9px}
+.line input[type=text]{flex:1 1 140px}
+.note{margin:8px 0 0;color:var(--mut);font-size:13px}
+.chart{display:flex;gap:6px;height:104px;margin-top:10px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%}
+.bwrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.bar{width:100%;max-width:28px;min-height:3px;border-radius:7px 7px 3px 3px;background:var(--acc);opacity:.45}
+.bar.today{opacity:1}
+.lbl{font-size:11px;color:var(--mut)}
+.subwk{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.hist-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 8px}
+.hist-head .muted{margin:0;margin-right:auto;margin-left:8px}
+.csv{padding:5px 10px;font-size:13px;background:transparent}
+.log{max-height:min(38vh,300px);overflow:auto;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 8px 9px 12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;font-size:14px}
+.item .meta{color:var(--mut);font-size:13px}
+.item .right{display:flex;align-items:center;gap:4px}
+.item .dur{font-weight:650;font-variant-numeric:tabular-nums;margin-right:4px}
+.empty{color:var(--mut);text-align:center;padding:14px 0;margin:0;font-size:14px}
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%,16px);display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:14px;padding:10px 12px 10px 16px;font-size:14px;max-width:calc(100% - 24px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{padding:6px 10px;font-weight:700;color:var(--acc);background:transparent;border:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <div>
+      <h1>⏱️ Study Hour Counter</h1>
+      <p class="muted">Stopwatch, Pomodoro, subject-wise record, streak aur exam countdown. Offline bhi chalta hai.</p>
+    </div>
+    <div class="tools">
+      <button type="button" id="installBtn" class="install" hidden>📲 Install</button>
+      <button type="button" id="themeBtn">🌙 Dark</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section aria-label="Timer">
+      <div class="seg" role="group" aria-label="Mode">
+        <button type="button" id="swBtn" aria-pressed="true">⏱️ Stopwatch</button>
+        <button type="button" id="pmBtn" aria-pressed="false">🍅 Pomodoro</button>
+      </div>
+
+      <input class="subj" id="sub" list="subs" maxlength="30" placeholder="Subject likho (jaise Maths)" aria-label="Subject">
+      <datalist id="subs"></datalist>
+
+      <div class="dial">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="track" cx="60" cy="60" r="56"/>
+          <circle class="prog" id="prog" cx="60" cy="60" r="56" pathLength="100"/>
+        </svg>
+        <div class="clock" id="clock" role="timer" aria-label="Time">00:00:00</div>
+      </div>
+      <p class="phase" id="phase"></p>
+      <p class="status" id="status"></p>
+
+      <div class="controls">
+        <button type="button" id="startBtn" class="primary">▶️ Start</button>
+        <button type="button" id="saveBtn" disabled>💾 Save</button>
+        <button type="button" id="resetBtn" disabled>↩️ Reset</button>
+      </div>
+
+      <div class="pomoset" id="pomoSet" hidden>
+        <label>Focus<input id="foc" type="number" min="1" max="120" inputmode="numeric"> min</label>
+        <label>Break<input id="brk" type="number" min="1" max="60" inputmode="numeric"> min</label>
+      </div>
+
+      <label class="check"><input type="checkbox" id="wake"> 📱 Timer chalte waqt screen on rakho</label>
+      <p class="hint" id="wakeNote"></p>
+      <p class="hint">Power button se phone lock karne par browser web page ke timers rok sakta hai. Time phir bhi sahi count hota hai, phone kholne par sahi dikhega.</p>
+
+      <form class="manual" id="manualForm">
+        <input id="mins" type="number" inputmode="numeric" min="1" max="1440" placeholder="Minutes add karo" aria-label="Minutes to add">
+        <input id="mdate" type="date" aria-label="Date for manual entry">
+        <button type="submit" class="active">➕ Add</button>
+      </form>
+    </section>
+
+    <aside aria-label="Stats and history">
+      <div class="stats">
+        <div class="stat"><b id="today">0m</b><span>Aaj</span></div>
+        <div class="stat"><b id="week">0m</b><span>7 din</span></div>
+        <div class="stat"><b id="streak">0</b><span>🔥 Streak</span></div>
+        <div class="stat"><b id="total">0m</b><span>Total</span></div>
+      </div>
+
+      <div class="card">
+        <div class="line">
+          <label for="goal">🎯 Daily goal (min)</label>
+          <input id="goal" type="number" min="5" max="1440" step="5" inputmode="numeric">
+        </div>
+        <p class="note" id="goalNote"></p>
+      </div>
+
+      <div class="card">
+        <div class="line">
+          <input id="exName" type="text" maxlength="40" placeholder="Exam ka naam" aria-label="Exam name">
+          <input id="exDate" type="date" aria-label="Exam date">
+        </div>
+        <p class="note" id="examNote"></p>
+      </div>
+
+      <div class="card">
+        <h2>Is hafte</h2>
+        <div class="chart" id="chart"></div>
+        <div class="subwk" id="subWeek"></div>
+      </div>
+
+      <div class="hist-head">
+        <h2>History</h2>
+        <span class="muted" id="count"></span>
+        <button type="button" class="csv" id="csvBtn">⬇️ CSV</button>
+      </div>
+      <div class="log" id="log"></div>
+    </aside>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button type="button" id="toastBtn" hidden>Undo</button>
+</div>
+
 <script>
-let seconds=0,running=false,t=null;const K='study_hour_counter';let D=JSON.parse(localStorage.getItem(K)||'{"logs":[],"theme":"dark"}');
-const $=i=>document.getElementById(i);
-function save(){localStorage.setItem(K,JSON.stringify(D))}
-function today(){return new Date().toISOString().slice(0,10)}
-function fmt(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0')}
-function hm(m){return Math.floor(m/60)+'h '+(m%60)+'m'}
-function start(){if(running)return;running=true;$('startBtn').textContent='⏸️ Pause';t=setInterval(()=>{seconds++;$('clock').textContent=fmt(seconds)},1000)}
-function pause(){running=false;clearInterval(t);$('startBtn').textContent='▶️ Start';if(seconds>0)add(seconds)}
-function reset(){running=false;clearInterval(t);seconds=0;$('clock').textContent=fmt(0);$('startBtn').textContent='▶️ Start'}
-function add(sec){const m=Math.round(sec/60);if(m<1)return;D.logs.unshift({date:today(),minutes:m,at:new Date().toLocaleTimeString('en-IN')});save();render()}
-function addManual(){const m=parseInt($('mins').value);if(!m||m<1)return;D.logs.unshift({date:today(),minutes:m,at:'Manual'});$('mins').value='';save();render()}
-function del(i){D.logs.splice(i,1);save();render()}
-function toggleTheme(){D.theme=D.theme==='dark'?'light':'dark';save();applyTheme()}
-function applyTheme(){document.body.classList.toggle('light',D.theme==='light');$('themeBtn').textContent=D.theme==='light'?'🌙 Dark':'☀️ Light'}
-function render(){const t=today();const todayMin=D.logs.filter(x=>x.date===t).reduce((a,b)=>a+b.minutes,0);const total=D.logs.reduce((a,b)=>a+b.minutes,0);$('today').textContent=hm(todayMin);$('total').textContent=hm(total);$('log').innerHTML=D.logs.slice(0,30).map((x,i)=>`<div class="item"><span>${x.date} • ${x.at}</span><span><b>${hm(x.minutes)}</b> <button class="reset" onclick="del(${i})">✕</button></span></div>`).join('')||'<p class="muted">Abhi koi session record nahi hua.</p>'}
-applyTheme();render();
+(() => {
+  const KEY = 'study_hour_counter';   // same key as before, so old history carries over
+  const TKEY = 'study_hour_timer';
+  const DEFAULT_SUBS = ['Maths', 'Science', 'English', 'Hindi', 'Revision'];
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const read = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) || fb; } catch { return fb; } };
+  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // local date
+  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return dayKey(d); };
+  const parseDay = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const clockStr = s => `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+  const durStr = sec => { const m = Math.floor(sec / 60), h = Math.floor(m / 60); return h ? `${h}h ${m % 60}m` : `${m}m`; };
+  const timeStr = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const clampInt = (v, lo, hi, fb) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(hi, Math.max(lo, n)) : fb; };
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const dayLabel = k => k === dayKey() ? 'Aaj' : k === daysAgo(1) ? 'Kal' : parseDay(k).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const subj = () => ($('sub').value.trim() || 'General').slice(0, 30);
+  const systemLight = matchMedia('(prefers-color-scheme: light)');
 
-</script><button id="installBtn" style="display:none">📲 Install App</button>
+  // ---- data ----
+  let D = read(KEY, {});
+  D.logs = (Array.isArray(D.logs) ? D.logs : [])
+    .map(l => ({
+      id: l.id || uid(),
+      date: l.date,
+      sec: Number.isFinite(l.sec) ? l.sec : Math.round((l.minutes || 0) * 60), // old entries stored minutes
+      at: l.at || '',
+      sub: l.sub || 'General'
+    }))
+    .filter(l => /^\d{4}-\d{2}-\d{2}$/.test(l.date) && l.sec > 0);
+  if (!Number.isFinite(D.goal)) D.goal = 120;
+  if (!Number.isFinite(D.foc)) D.foc = 25;
+  if (!Number.isFinite(D.brk)) D.brk = 5;
+  if (!D.mode) D.mode = 'sw';
+  if (D.wake === undefined) D.wake = true;
+  D.exam = D.exam || { name: '', date: '' };
+  const persist = () => write(KEY, D);
 
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
-}
+  // ---- timer state: timestamp based, so it stays correct in background, locked phone and after reloads ----
+  let T = read(TKEY, null) || {};
+  T = { base: Number(T.base) || 0, startedAt: Number(T.startedAt) || null, phase: T.phase === 'break' ? 'break' : 'focus' };
+  let ticker = null, todaySaved = 0, actx = null, wakeLock = null, asking = false;
+  const persistTimer = () => write(TKEY, T);
+  const isRunning = () => T.startedAt !== null;
+  const elapsed = () => T.base + (isRunning() ? Math.max(0, Date.now() - T.startedAt) / 1000 : 0);
+  const secs = () => Math.floor(elapsed());
+  const phaseLen = () => (T.phase === 'break' ? D.brk : D.foc) * 60;
 
-let deferredPrompt;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById("installBtn").style.display = "block";
-});
+  // ---- sessions ----
+  function logSession(sec, sub) {
+    D.logs.unshift({ id: uid(), date: dayKey(), sec, at: timeStr(), sub });
+    persist();
+  }
 
-document.getElementById("installBtn").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  document.getElementById("installBtn").style.display = "none";
-});
-</script></body></html>
+  // Pomodoro: finish every phase that has passed, even if the phone was locked for a long time
+  function tickPomo() {
+    let changed = false;
+    while (isRunning() && D.mode === 'pomo' && elapsed() >= phaseLen()) {
+      const over = elapsed() - phaseLen();
+      if (T.phase === 'focus') {
+        logSession(D.foc * 60, subj());
+        notify('Focus complete 🎉', `${D.brk} min ka break lo.`);
+      } else {
+        notify('Break khatam ☕', 'Ab focus shuru karo.');
+      }
+      beep();
+      T = { base: 0, startedAt: Date.now() - over * 1000, phase: T.phase === 'focus' ? 'break' : 'focus' };
+      changed = true;
+    }
+    if (changed) { persistTimer(); render(); }
+    return changed;
+  }
+
+  function paint() {
+    tickPomo();
+    const pomo = D.mode === 'pomo', e = elapsed(), L = pomo ? phaseLen() : 0;
+    const s = pomo ? Math.max(0, Math.ceil(L - e)) : Math.floor(e);
+    $('clock').textContent = clockStr(s);
+    const pct = pomo ? Math.min(100, e / L * 100) : Math.min(100, (todaySaved + e) / (D.goal * 60) * 100);
+    $('prog').style.strokeDashoffset = 100 - pct;
+    $('phase').textContent = pomo ? (T.phase === 'focus' ? '🍅 Focus' : '☕ Break') : '';
+    document.title = isRunning() ? `${clockStr(s)} • ${pomo ? (T.phase === 'focus' ? 'Focus' : 'Break') : 'Study'}` : 'Study Hour Counter';
+  }
+
+  function syncTimer() {
+    const running = isRunning(), s = secs();
+    if (running && !ticker) ticker = setInterval(paint, 250);
+    if (!running && ticker) { clearInterval(ticker); ticker = null; }
+    $('startBtn').textContent = running ? '⏸️ Pause' : '▶️ Start';
+    $('startBtn').className = running ? 'active' : 'primary';
+    $('saveBtn').disabled = D.mode === 'pomo' || s === 0;
+    $('resetBtn').disabled = s === 0 && T.phase === 'focus';
+    $('swBtn').setAttribute('aria-pressed', D.mode === 'sw');
+    $('pmBtn').setAttribute('aria-pressed', D.mode === 'pomo');
+    $('pomoSet').hidden = D.mode !== 'pomo';
+    $('status').textContent = running ? (D.mode === 'pomo' ? 'Focus chal raha hai. Bas padho 📚' : 'Study chal raha hai. Focus rakho 📚')
+      : s ? 'Paused. Save karo ya Start karke continue karo'
+      : 'Start dabao ya Space press karo';
+    keepAwake();
+    paint();
+  }
+
+  function start() {
+    if (isRunning()) return;
+    audio();
+    try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch {}
+    T.startedAt = Date.now(); persistTimer(); syncTimer();
+  }
+  function pause() {
+    if (!isRunning()) return;
+    T.base += Math.max(0, Date.now() - T.startedAt) / 1000;
+    T.startedAt = null; persistTimer(); syncTimer();
+  }
+  const toggle = () => (isRunning() ? pause() : start());
+
+  function saveSession() {
+    pause();
+    const sec = secs();
+    if (D.mode === 'pomo') return;
+    if (sec < 60) return toast('1 minute se kam hai, save nahi hua');
+    const sub = subj();
+    logSession(sec, sub);
+    T = { base: 0, startedAt: null, phase: 'focus' };
+    persistTimer(); render(); syncTimer();
+    toast(`✅ ${durStr(sec)} • ${sub} save ho gaya`);
+  }
+
+  function resetTimer() {
+    const prev = { ...T };
+    T = { base: 0, startedAt: null, phase: 'focus' };
+    persistTimer(); syncTimer();
+    toast('↩️ Timer reset', () => { T = prev; persistTimer(); syncTimer(); });
+  }
+
+  function setMode(m) {
+    if (D.mode === m) return;
+    if (isRunning() || elapsed() > 0) return toast('Pehle Reset karo, phir mode badlo');
+    D.mode = m; T = { base: 0, startedAt: null, phase: 'focus' };
+    persist(); persistTimer(); syncTimer();
+  }
+
+  // ---- sound, notifications, screen wake lock ----
+  function audio() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch {}
+  }
+  function beep() {
+    try {
+      audio();
+      [0, 0.4, 0.8].forEach(t => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(0.18, actx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + t + 0.3);
+        o.connect(g).connect(actx.destination);
+        o.start(actx.currentTime + t); o.stop(actx.currentTime + t + 0.3);
+      });
+    } catch {}
+  }
+  async function notify(title, body) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.showNotification(title, { body, tag: 'study' });
+      else new Notification(title, { body });
+    } catch {}
+  }
+  async function keepAwake() {
+    const want = D.wake && isRunning() && 'wakeLock' in navigator && document.visibilityState === 'visible';
+    if (want && !wakeLock && !asking) {
+      asking = true;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; wakeNote(); });
+      } catch { wakeLock = null; }
+      asking = false;
+    } else if (!want && wakeLock) {
+      const w = wakeLock; wakeLock = null; w.release().catch(() => {});
+    }
+    wakeNote();
+  }
+  function wakeNote() {
+    const n = $('wakeNote');
+    if (!('wakeLock' in navigator)) n.textContent = 'Is browser mein screen-on support nahi hai.';
+    else n.textContent = wakeLock ? 'Screen on hai, timer chal raha hai.'
+      : D.wake ? 'Timer start karte hi screen on rahegi.'
+      : 'Screen apne aap band ho sakti hai.';
+  }
+
+  // ---- manual entry ----
+  $('manualForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const m = Math.round(Number($('mins').value)), date = $('mdate').value || dayKey();
+    if (!(m >= 1 && m <= 1440)) return toast('1 se 1440 minutes ke beech likho');
+    if (date > dayKey()) return toast('Future date allowed nahi hai');
+    D.logs.unshift({ id: uid(), date, sec: m * 60, at: 'Manual', sub: subj() });
+    persist(); render();
+    $('mins').value = '';
+    toast(`➕ ${durStr(m * 60)} • ${subj()} add ho gaya`);
+  });
+
+  // ---- history ----
+  function removeLog(id) {
+    const i = D.logs.findIndex(l => l.id === id);
+    if (i < 0) return;
+    const [gone] = D.logs.splice(i, 1);
+    persist(); render();
+    toast(`🗑️ ${durStr(gone.sec)} delete ho gaya`, () => { D.logs.splice(i, 0, gone); persist(); render(); });
+  }
+
+  function renderStats(byDay) {
+    const today = dayKey(), goalSec = D.goal * 60;
+    let all = 0;
+    for (const l of D.logs) all += l.sec;
+    const t = byDay[today] || 0;
+    let w = 0;
+    for (let i = 0; i < 7; i++) w += byDay[daysAgo(i)] || 0;
+    // streak: consecutive days hitting the goal; today counts only once the goal is hit
+    let streak = 0;
+    const d = new Date();
+    if (t < goalSec) d.setDate(d.getDate() - 1);
+    while ((byDay[dayKey(d)] || 0) >= goalSec) { streak++; d.setDate(d.getDate() - 1); }
+    todaySaved = t;
+    $('today').textContent = durStr(t);
+    $('week').textContent = durStr(w);
+    $('streak').textContent = streak;
+    $('total').textContent = durStr(all);
+    $('goalNote').textContent = t >= goalSec ? '🎉 Aaj ka goal complete!' : `Aaj ${durStr(goalSec - t)} aur chahiye`;
+    $('count').textContent = `${D.logs.length} sessions`;
+    const ex = D.exam;
+    let note = '';
+    if (ex.date) {
+      const days = Math.round((parseDay(ex.date) - parseDay(today)) / 864e5), nm = ex.name || 'Exam';
+      note = days > 0 ? `${nm} mein ${days} din baaki` : days === 0 ? `${nm} aaj hai, all the best! 💪` : `${nm} ho chuka hai`;
+    }
+    $('examNote').textContent = note;
+  }
+
+  function renderWeek(byDay) {
+    const box = $('chart');
+    box.replaceChildren();
+    const keys = [...Array(7)].map((_, i) => daysAgo(6 - i));
+    const max = Math.max(3600, ...keys.map(k => byDay[k] || 0));
+    for (const k of keys) {
+      const v = byDay[k] || 0;
+      const bar = el('div', 'bar' + (k === dayKey() ? ' today' : ''));
+      bar.style.height = (v / max * 100) + '%';
+      bar.title = `${dayLabel(k)}: ${durStr(v)}`;
+      const wrap = el('div', 'bwrap');
+      wrap.append(bar);
+      const col = el('div', 'col');
+      col.append(wrap, el('span', 'lbl', parseDay(k).toLocaleDateString('en-IN', { weekday: 'short' })));
+      box.append(col);
+    }
+  }
+
+  function renderSubs() {
+    const names = new Set(DEFAULT_SUBS);
+    for (const l of D.logs) names.add(l.sub);
+    $('subs').replaceChildren(...[...names].map(n => { const o = document.createElement('option'); o.value = n; return o; }));
+    const box = $('subWeek');
+    box.replaceChildren();
+    const wk = daysAgo(6), today = dayKey(), tot = {};
+    for (const l of D.logs) if (l.date >= wk && l.date <= today) tot[l.sub] = (tot[l.sub] || 0) + l.sec;
+    const rows = Object.entries(tot).sort((a, b) => b[1] - a[1]);
+    if (!rows.length) { box.append(el('p', 'empty', 'Is hafte koi subject record nahi hua.')); return; }
+    for (const [n, s] of rows) {
+      const row = el('div', 'item');
+      row.append(el('span', '', n), el('span', 'dur', durStr(s)));
+      box.append(row);
+    }
+  }
+
+  function renderLog() {
+    const box = $('log');
+    box.replaceChildren();
+    if (!D.logs.length) { box.append(el('p', 'empty', 'Abhi koi session record nahi hua. Pehla session start karo!')); return; }
+    const sorted = [...D.logs].sort((a, b) => b.date.localeCompare(a.date));
+    for (const l of sorted) {
+      const del = el('button', 'icon', '✕');
+      del.type = 'button';
+      del.title = 'Delete';
+      del.setAttribute('aria-label', 'Delete this entry');
+      del.addEventListener('click', () => removeLog(l.id));
+      const right = el('div', 'right');
+      right.append(el('span', 'dur', durStr(l.sec)), del);
+      const row = el('div', 'item');
+      row.append(el('span', 'meta', [l.sub, dayLabel(l.date), l.at].filter(Boolean).join(' • ')), right);
+      box.append(row);
+    }
+  }
+
+  function render() {
+    const byDay = {};
+    for (const l of D.logs) byDay[l.date] = (byDay[l.date] || 0) + l.sec;
+    renderStats(byDay);
+    renderWeek(byDay);
+    renderSubs();
+    renderLog();
+  }
+
+  function exportCSV() {
+    if (!D.logs.length) return toast('Export ke liye koi record nahi hai');
+    const rows = [['date', 'subject', 'minutes', 'time'], ...D.logs.map(l => [l.date, l.sub, (l.sec / 60).toFixed(1), l.at])];
+    const csv = '\ufeff' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `study-log-${dayKey()}.csv`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---- settings and goal ----
+  $('goal').addEventListener('change', e => { D.goal = clampInt(e.target.value, 5, 1440, 120); e.target.value = D.goal; persist(); render(); syncTimer(); });
+  $('foc').addEventListener('change', e => { D.foc = clampInt(e.target.value, 1, 120, 25); e.target.value = D.foc; persist(); if (!isRunning()) syncTimer(); });
+  $('brk').addEventListener('change', e => { D.brk = clampInt(e.target.value, 1, 60, 5); e.target.value = D.brk; persist(); if (!isRunning()) syncTimer(); });
+  $('exName').addEventListener('change', () => { D.exam.name = $('exName').value.trim().slice(0, 40); persist(); render(); });
+  $('exDate').addEventListener('change', () => { D.exam.date = $('exDate').value; persist(); render(); });
+  $('sub').addEventListener('change', () => { D.lastSub = $('sub').value.trim(); persist(); renderSubs(); });
+  $('wake').addEventListener('change', e => { D.wake = e.target.checked; persist(); keepAwake(); });
+
+  // ---- controls ----
+  $('startBtn').addEventListener('click', toggle);
+  $('saveBtn').addEventListener('click', saveSession);
+  $('resetBtn').addEventListener('click', resetTimer);
+  $('swBtn').addEventListener('click', () => setMode('sw'));
+  $('pmBtn').addEventListener('click', () => setMode('pomo'));
+  $('csvBtn').addEventListener('click', exportCSV);
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space' || e.repeat || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+    e.preventDefault();
+    toggle();
+  });
+  document.addEventListener('visibilitychange', () => { paint(); keepAwake(); });
+
+  // ---- toast ----
+  let toastTimer = 0;
+  const hideToast = () => $('toast').classList.remove('show');
+  function toast(msg, undo) {
+    $('toastMsg').textContent = msg;
+    const b = $('toastBtn');
+    b.hidden = !undo;
+    b.onclick = () => { hideToast(); if (undo) undo(); };
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, undo ? 6000 : 2800);
+  }
+
+  // ---- theme ----
+  function applyTheme() {
+    const theme = D.theme || (systemLight.matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme;
+    $('themeBtn').textContent = theme === 'light' ? '🌙 Dark' : '☀️ Light';
+    $('metaTheme').content = theme === 'light' ? '#f6f4ef' : '#0e1116';
+  }
+  $('themeBtn').addEventListener('click', () => {
+    D.theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    persist(); applyTheme();
+  });
+  systemLight.addEventListener?.('change', () => { if (!D.theme) applyTheme(); });
+
+  // ---- install (PWA) ----
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('installBtn').hidden = false; });
+  window.addEventListener('appinstalled', () => { deferredPrompt = null; $('installBtn').hidden = true; });
+  $('installBtn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    $('installBtn').hidden = true;
+  });
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  // ---- init ----
+  $('mdate').value = dayKey();
+  $('mdate').max = dayKey();
+  $('goal').value = D.goal;
+  $('foc').value = D.foc;
+  $('brk').value = D.brk;
+  $('wake').checked = D.wake;
+  $('sub').value = D.lastSub || '';
+  $('exName').value = D.exam.name;
+  $('exDate').value = D.exam.date;
+  persist();
+  applyTheme();
+  render();
+  syncTimer();
+})();
+</script>
+</body>
+</html>
