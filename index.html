@@ -100,7 +100,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     .item:hover{border-color:var(--acc)}
   }
 }
-@media (max-width:760px){
+@media (max-width:760px) and (orientation:portrait){
   body{padding:0;display:block;background:var(--bg)}
   .app{width:100%;min-height:100vh;border:0;border-radius:0;box-shadow:none;background:transparent;padding:calc(14px + env(safe-area-inset-top)) 16px calc(104px + env(safe-area-inset-bottom))}
   .top .muted{display:none}
@@ -129,6 +129,39 @@ h2{margin:0;font-size:15px;font-weight:700}
   .tab{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:transparent;color:var(--mut);padding:8px 4px;border-radius:12px;font-size:20px;line-height:1.1}
   .tab span{font-size:12px;font-weight:650}
   .tab[aria-pressed="true"]{color:var(--acc);background:var(--card2)}
+}
+
+
+/* ---------- Landscape phone: short screen, so compact two-column layout ---------- */
+@media (max-height:520px) and (orientation:landscape){
+  .tabbar{display:none}
+  body{padding:0;display:block;background:var(--bg)}
+  .app{width:100%;height:100vh;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none;background:transparent;display:flex;flex-direction:column;padding:calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+  .top{flex:0 0 auto;align-items:center}
+  .top .muted,.status,.hint,.kbd{display:none}
+  h1{font-size:16px}
+  .tools button{padding:7px 10px;font-size:13px}
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px;margin-top:8px}
+  .main>section,.main>aside{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  .seg{margin:0 auto}
+  .seg button{padding:6px 12px;min-height:36px}
+  .subj{margin-top:8px;min-height:40px}
+  .dial{width:min(40vh,190px);margin:6px auto 0}
+  .clock{font-size:clamp(24px,6.5vh,36px)}
+  .phase{margin:2px 0 0;font-size:14px}
+  .controls{margin-top:6px;gap:8px}
+  .controls button{min-height:44px;padding:8px 14px}
+  .pomoset{margin-top:8px}
+  .check{margin-top:8px}
+  .manual{margin-top:10px;padding-top:10px}
+  .manual input,.manual button{min-height:44px}
+  .stats{grid-template-columns:repeat(4,1fr)}
+  .stat{padding:8px 4px}
+  .card{margin-top:8px;padding:10px}
+  .chart{height:70px;margin-top:6px}
+  .log{max-height:none}
+  .hist-head{margin:12px 0 6px}
+  .toast{bottom:12px}
 }
 </style>
 </head>
