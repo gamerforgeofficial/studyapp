@@ -179,6 +179,7 @@ h2{margin:0;font-size:15px;font-weight:700}
 .profile-avatar{width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--acc);background:var(--card2);display:grid;place-items:center;font-size:30px;flex:0 0 auto}
 .avatar-actions{display:flex;gap:8px;flex-wrap:wrap}.avatar-actions button{padding:8px 12px;font-size:13px}
 .profile-btn{display:flex;align-items:center;gap:8px}.profile-btn img{width:25px;height:25px;border-radius:50%;object-fit:cover}
+.leaderboard-modal{position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.68);display:grid;place-items:center;padding:14px}.leaderboard-panel{width:min(620px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;box-shadow:var(--shadow)}.lb-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:13px;margin-top:8px;background:var(--card2);cursor:pointer;width:100%;text-align:left;color:var(--text)}.lb-row.me{border-color:var(--acc)}.lb-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--card);display:grid;place-items:center;flex:0 0 auto}.lb-meta{min-width:0;flex:1}.lb-meta b,.lb-meta small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb-meta small{color:var(--mut)}.lb-points{font-weight:800;white-space:nowrap}.lb-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.lb-top-card{border:1px solid var(--border);background:var(--card2);border-radius:14px;padding:12px 5px;text-align:center;min-width:0}.lb-top-card.first{border-color:#d6a32b;transform:translateY(-4px)}.lb-top-card b,.lb-top-card small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb-top-card .medal{font-size:25px}.public-profile{text-align:center;padding:14px}.public-profile .lb-avatar{width:88px;height:88px;margin:0 auto 10px;font-size:28px}
 
 </style>
 </head>
@@ -199,7 +200,7 @@ h2{margin:0;font-size:15px;font-weight:700}
 </div>
 <div class="profile-modal" id="profileModal" hidden>
   <section class="profile-panel" aria-label="Personal profile">
-    <div class="profile-head"><div><h2>👤 My Profile</h2><p class="muted" id="profileEmail"></p></div><button type="button" id="closeProfile">✕</button></div>
+    <div class="profile-head"><div><h2>👤 My Profile</h2><p class="muted" id="profileEmail"></p><span class="note" id="profileRankBadge" hidden></span></div><button type="button" id="closeProfile">✕</button></div>
     <div class="profile-avatar-wrap">
       <img class="profile-avatar" id="profileAvatar" alt="Your profile picture" hidden>
       <div class="profile-avatar" id="profileAvatarFallback" aria-hidden="true">👤</div>
@@ -217,8 +218,40 @@ h2{margin:0;font-size:15px;font-weight:700}
       <div class="profile-stat"><b id="pSubjects">0</b><span>Subjects studied</span></div>
     </div>
     <div class="profile-subjects"><h2>Subject-wise hours</h2><div id="profileSubjectList"></div></div>
-    <div class="auth-actions"><button type="button" id="accountBtn" class="primary">Sign in / Create account</button><button type="button" id="logoutBtn" hidden>Logout</button></div>
+    <div class="auth-actions"><button type="button" id="leaderboardOpen" class="primary" hidden>🏆 Leaderboard</button><button type="button" id="accountBtn" class="primary">Sign in / Create account</button><button type="button" id="logoutBtn" hidden>Logout</button></div>
     <p class="note" id="profileAccountNote">Guest data is saved on this device. Sign in to back it up to your account.</p>
+  </section>
+</div>
+<div class="leaderboard-modal" id="leaderboardModal" hidden>
+  <section class="leaderboard-panel" aria-label="Leaderboard">
+    <div class="profile-head"><div><h2>🏆 Leaderboard</h2><p class="muted">20 min/day • 10 points per qualifying day</p></div><button type="button" id="closeLeaderboard">✕</button></div>
+    <div class="profile-grid" style="margin-bottom:12px">
+      <div class="profile-stat"><b id="myLbPoints">0</b><span>Your points</span></div>
+      <div class="profile-stat"><b id="myLbRank">—</b><span>Your rank</span></div>
+      <div class="profile-stat"><b id="myLbStreak">0</b><span>Qualifying days</span></div>
+      <div class="profile-stat"><b id="myLbToday">0m</b><span>Today's study</span></div>
+    </div>
+    <p class="note">One missed day is a grace day. Two consecutive missed days reset your points. Tap a user to view their public profile.</p>
+    <div id="leaderboardPodium" class="lb-top"></div>
+    <div id="leaderboardList"><p class="empty">Loading leaderboard…</p></div>
+    <p class="auth-error" id="leaderboardError" role="alert"></p>
+  </section>
+</div>
+<div class="leaderboard-modal" id="publicProfileModal" hidden>
+  <section class="leaderboard-panel" aria-label="Public user profile">
+    <div class="profile-head"><h2>👤 Public profile</h2><button type="button" id="closePublicProfile">✕</button></div>
+    <div class="public-profile">
+      <img class="lb-avatar" id="publicAvatar" alt="Profile picture" hidden>
+      <div class="lb-avatar" id="publicAvatarFallback">👤</div>
+      <h2 id="publicName">Student</h2><p class="muted" id="publicId"></p><span class="note" id="publicBadge" hidden></span>
+      <div class="profile-grid" style="text-align:left;margin-top:16px">
+        <div class="profile-stat"><b id="publicPoints">0</b><span>Points</span></div>
+        <div class="profile-stat"><b id="publicRank">—</b><span>Rank</span></div>
+        <div class="profile-stat"><b id="publicStreak">0</b><span>Qualifying days</span></div>
+        <div class="profile-stat"><b id="publicToday">0m</b><span>Today's study</span></div>
+      </div>
+    </div>
+    <p class="note">Only public profile and leaderboard information is shown. Private study history, subjects and email are not shared.</p>
   </section>
 </div>
 
@@ -794,10 +827,122 @@ h2{margin:0;font-size:15px;font-weight:700}
   $('pmBtn').addEventListener('click', () => setMode('pomo'));
   $('csvBtn').addEventListener('click', exportCSV);
 
+  // ---- public profile + leaderboard ----
+  const lbModal = $('leaderboardModal'), publicModal = $('publicProfileModal');
+  let publicProfileCache = null;
+  const escapeText = value => String(value ?? '');
+  const avatarFallback = (img, fallback, url) => {
+    if (url) { img.src = url; img.hidden = false; fallback.hidden = true; }
+    else { img.hidden = true; fallback.hidden = false; }
+  };
+  async function loadMyPublicProfile() {
+    if (!accountUser || !window.studySupabase) return null;
+    const { data, error } = await window.studySupabase.from('public_profiles').select('user_id,public_id,display_name,avatar_url').eq('user_id', accountUser.id).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  async function openLeaderboard() {
+    if (!accountUser) { toast('Sign in to access the leaderboard.'); return; }
+    lbModal.hidden = false; $('leaderboardError').textContent = ''; $('leaderboardList').replaceChildren(el('p','empty','Loading leaderboard…'));
+    try {
+      const { error: refreshError } = await window.studySupabase.rpc('refresh_my_leaderboard');
+      if (refreshError) throw refreshError;
+      const { data, error } = await window.studySupabase.from('leaderboard_public').select('user_id,public_id,display_name,avatar_url,points,current_streak,today_minutes,updated_at').order('points',{ascending:false}).order('updated_at',{ascending:true}).limit(200);
+      if (error) throw error;
+      const rows = data || [], mine = rows.find(x => x.user_id === accountUser.id);
+      $('myLbPoints').textContent = mine?.points ?? 0;
+      $('myLbRank').textContent = mine ? '#' + (rows.findIndex(x => x.user_id === accountUser.id) + 1) : '—';
+      $('myLbStreak').textContent = mine?.current_streak ?? 0;
+      $('myLbToday').textContent = (mine?.today_minutes ?? 0) + 'm';
+      const myRank = mine ? rows.findIndex(x=>x.user_id===accountUser.id)+1 : 0;
+      const myBadge = myRank===1?'🥇 1st Place':myRank===2?'🥈 2nd Place':myRank===3?'🥉 3rd Place':'';
+      $('profileRankBadge').textContent=myBadge; $('profileRankBadge').hidden=!myBadge;
+      const podium = $('leaderboardPodium'); podium.replaceChildren();
+      const podiumOrder = [rows[1], rows[0], rows[2]];
+      podiumOrder.forEach((u, i) => {
+        const card = el('div','lb-top-card' + (i === 1 ? ' first' : ''));
+        const medals = ['🥈','🥇','🥉'];
+        card.append(el('div','medal',u ? medals[i] : '—'));
+        card.append(el('b','',u?.display_name || '—'));
+        card.append(el('small','',u ? `${u.points} pts` : ''));
+        if (u) { card.style.cursor='pointer'; card.addEventListener('click',()=>showPublicProfile(u, rows)); }
+        podium.append(card);
+      });
+      const list = $('leaderboardList'); list.replaceChildren();
+      if (!rows.length) list.append(el('p','empty','No leaderboard users yet.'));
+      rows.forEach((u, i) => {
+        const row = el('button','lb-row' + (u.user_id === accountUser.id ? ' me' : ''));
+        row.type='button';
+        row.append(el('strong','',`#${i+1}`));
+        const img = document.createElement('img'); img.className='lb-avatar'; img.alt=''; img.src=u.avatar_url || ''; img.hidden=!u.avatar_url;
+        const fallback = el('div','lb-avatar','👤'); fallback.hidden=!!u.avatar_url;
+        row.append(img, fallback);
+        const meta = el('span','lb-meta'); meta.append(el('b','',u.display_name || 'Student'),el('small','',`${u.public_id} • 🔥 ${u.current_streak} qualifying days`));
+        row.append(meta,el('span','lb-points',`${u.points} pts`));
+        row.addEventListener('click',()=>showPublicProfile(u, rows)); list.append(row);
+      });
+    } catch (err) { $('leaderboardError').textContent = 'Leaderboard load failed: ' + (err?.message || 'Please check the SQL setup.'); $('leaderboardList').replaceChildren(); }
+  }
+  function showPublicProfile(u, rows) {
+    $('publicName').textContent = u.display_name || 'Student';
+    $('publicId').textContent = u.public_id || '';
+    $('publicPoints').textContent = u.points ?? 0;
+    const rank = rows.findIndex(x => x.user_id === u.user_id) + 1;
+    $('publicRank').textContent = '#' + rank;
+    const badgeText = rank===1?'🥇 1st Place':rank===2?'🥈 2nd Place':rank===3?'🥉 3rd Place':'';
+    $('publicBadge').textContent = badgeText; $('publicBadge').hidden = !badgeText;
+    $('publicStreak').textContent = u.current_streak ?? 0;
+    $('publicToday').textContent = (u.today_minutes ?? 0) + 'm';
+    avatarFallback($('publicAvatar'),$('publicAvatarFallback'),u.avatar_url);
+    publicModal.hidden = false;
+  }
+  $('leaderboardOpen').addEventListener('click', openLeaderboard);
+  $('closeLeaderboard').addEventListener('click',()=>lbModal.hidden=true);
+  lbModal.addEventListener('click',e=>{if(e.target===lbModal)lbModal.hidden=true;});
+  $('closePublicProfile').addEventListener('click',()=>publicModal.hidden=true);
+  publicModal.addEventListener('click',e=>{if(e.target===publicModal)publicModal.hidden=true;});
+
   $('profileEmail').textContent = signedInUser?.email || 'Guest mode • Data saved on this device';
   $('logoutBtn').hidden = !signedInUser;
   $('accountBtn').hidden = !!signedInUser;
+  $('leaderboardOpen').hidden = !signedInUser;
   $('profileAccountNote').textContent = signedInUser ? 'Your study records are linked to this email account and synced securely.' : 'Guest data is saved on this device. Sign in or create an account to securely transfer it and access it on other devices.';
+  if (signedInUser) {
+    loadMyPublicProfile().then(profile => {
+      publicProfileCache = profile;
+      if (profile) avatarFallback($('profileAvatar'),$('profileAvatarFallback'),profile.avatar_url);
+    }).catch(err => console.warn('Public profile load:',err.message));
+  }
+  $('changeAvatarBtn').addEventListener('click',()=>{
+    if (!accountUser) { toast('Sign in to add a profile picture.'); return; }
+    $('avatarFile').click();
+  });
+  $('avatarFile').addEventListener('change',async e=>{
+    const file=e.target.files?.[0]; if(!file)return;
+    if(!accountUser)return;
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size>2*1024*1024){toast('Choose a JPG, PNG or WEBP image under 2 MB.');e.target.value='';return;}
+    try{
+      toast('Uploading profile picture…');
+      const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+      const path=`${accountUser.id}/avatar.${ext}`;
+      const {error:upErr}=await window.studySupabase.storage.from('study-avatars').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
+      if(upErr)throw upErr;
+      const {data:pub}=window.studySupabase.storage.from('study-avatars').getPublicUrl(path);
+      const avatarUrl=pub.publicUrl+(pub.publicUrl.includes('?')?'&':'?')+'v='+Date.now();
+      const {error:profileErr}=await window.studySupabase.from('public_profiles').update({avatar_url:avatarUrl,updated_at:new Date().toISOString()}).eq('user_id',accountUser.id);
+      if(profileErr)throw profileErr;
+      avatarFallback($('profileAvatar'),$('profileAvatarFallback'),avatarUrl); publicProfileCache={...(publicProfileCache||{}),avatar_url:avatarUrl}; toast('Profile picture updated.');
+    }catch(err){toast('Avatar upload failed: '+(err?.message||'Try again.'));}
+    e.target.value='';
+  });
+  $('removeAvatarBtn').addEventListener('click',async()=>{
+    if(!accountUser){toast('Sign in to manage your profile picture.');return;}
+    try{
+      const {error}=await window.studySupabase.from('public_profiles').update({avatar_url:null,updated_at:new Date().toISOString()}).eq('user_id',accountUser.id);
+      if(error)throw error;
+      avatarFallback($('profileAvatar'),$('profileAvatarFallback'),null); if(publicProfileCache)publicProfileCache.avatar_url=null; toast('Profile picture removed from public profile.');
+    }catch(err){toast('Could not update profile: '+(err?.message||''));}
+  });
   $('profileBtn').addEventListener('click', () => {
     const todayKey = dayKey(), bySubject = {}, byDay = {};
     for (const l of D.logs) { bySubject[l.sub] = (bySubject[l.sub] || 0) + l.sec; byDay[l.date] = (byDay[l.date] || 0) + l.sec; }
@@ -812,6 +957,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     Object.entries(bySubject).sort((a,b)=>b[1]-a[1]).forEach(([name,sec]) => list.append(el('div','item',`${name} • ${durStr(sec)}`)));
     if (!list.children.length) list.append(el('p','empty','No subject records yet.'));
     $('profileModal').hidden = false;
+    if (signedInUser) loadMyPublicProfile().then(profile=>{publicProfileCache=profile;if(profile)avatarFallback($('profileAvatar'),$('profileAvatarFallback'),profile.avatar_url);}).catch(()=>{});
   });
   $('closeProfile').addEventListener('click', () => $('profileModal').hidden = true);
   $('profileModal').addEventListener('click', e => { if (e.target === $('profileModal')) $('profileModal').hidden = true; });
