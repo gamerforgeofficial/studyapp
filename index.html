@@ -181,6 +181,12 @@ h2{margin:0;font-size:15px;font-weight:700}
 .profile-btn{display:flex;align-items:center;gap:8px}.profile-btn img{width:25px;height:25px;border-radius:50%;object-fit:cover}
 .leaderboard-modal{position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.68);display:grid;place-items:center;padding:14px}.leaderboard-panel{width:min(620px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;box-shadow:var(--shadow)}.lb-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:13px;margin-top:8px;background:var(--card2);cursor:pointer;width:100%;text-align:left;color:var(--text)}.lb-row.me{border-color:var(--acc)}.lb-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--card);display:grid;place-items:center;flex:0 0 auto}.lb-meta{min-width:0;flex:1}.lb-meta b,.lb-meta small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb-meta small{color:var(--mut)}.lb-points{font-weight:800;white-space:nowrap}.lb-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.lb-top-card{border:1px solid var(--border);background:var(--card2);border-radius:14px;padding:12px 5px;text-align:center;min-width:0}.lb-top-card.first{border-color:#d6a32b;transform:translateY(-4px)}.lb-top-card b,.lb-top-card small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb-top-card .medal{font-size:25px}.public-profile{text-align:center;padding:14px}.public-profile .lb-avatar{width:88px;height:88px;margin:0 auto 10px;font-size:28px}
 
+/* Compare, public profile popup */
+.cmp-grid{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:8px 10px;margin-top:10px;font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
+.cmp-grid>*{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-label{color:var(--mut);text-align:left}
+.cmp-win{color:var(--ok);font-weight:700}
+@media (max-width:760px){.cmp-grid{font-size:13px;gap:8px 6px}}
 </style>
 </head>
 <body data-tab="timer">
@@ -894,8 +900,68 @@ h2{margin:0;font-size:15px;font-weight:700}
     $('publicStreak').textContent = u.current_streak ?? 0;
     $('publicToday').textContent = (u.today_minutes ?? 0) + 'm';
     avatarFallback($('publicAvatar'),$('publicAvatarFallback'),u.avatar_url);
+    compareTarget = u;
+    cmpBtn.hidden = !accountUser || u.user_id === accountUser.id;
+    cmpBox.hidden = true;
     publicModal.hidden = false;
   }
+
+  // ---- compare, public profile popup ke andar ----
+  let compareTarget = null;
+  const fmtMin = m => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+  const cmpBtn = el('button', 'primary', '⚔️ Compare karo');
+  cmpBtn.style.cssText = 'margin-top:12px;width:100%';
+  const cmpBox = el('div', 'card');
+  cmpBox.hidden = true;
+  publicModal.querySelector('.public-profile').after(cmpBtn, cmpBox);
+
+  cmpBtn.addEventListener('click', async () => {
+    if (!accountUser || !compareTarget) { toast('Sign in to compare.'); return; }
+    cmpBox.hidden = false;
+    cmpBox.replaceChildren(el('p', 'empty', 'Comparing…'));
+    try {
+      const { data, error } = await window.studySupabase.rpc('leaderboard_compare', { p_target: compareTarget.user_id });
+      if (error) throw error;
+      renderCompare(data);
+    } catch (err) {
+      cmpBox.replaceChildren(el('p', 'empty', 'Compare failed: ' + (err?.message || 'Try again.')));
+    }
+  });
+
+  function renderCompare(d) {
+    const { me, them, diff } = d;
+    const name = them.display_name || 'Student';
+    const grid = el('div', 'cmp-grid');
+    grid.append(el('span', 'cmp-label', ''), el('b', '', 'Aap'), el('b', '', name));
+
+    const rows = [
+      ['Points', me.points, them.points, v => v],
+      ['Rank', me.rnk, them.rnk, v => '#' + v, false],
+      ['Streak', me.current_streak, them.current_streak, v => v + ' 🔥'],
+      ['Aaj', me.today_minutes, them.today_minutes, fmtMin],
+      ['7 din', me.week_minutes, them.week_minutes, fmtMin]
+    ];
+    for (const [label, a, b, fmt, higherWins = true] of rows) {
+      const better = higherWins ? a > b : a < b;
+      const worse  = higherWins ? a < b : a > b;
+      grid.append(
+        el('span', 'cmp-label', label),
+        el('span', better ? 'cmp-win' : '', fmt(a)),
+        el('span', worse ? 'cmp-win' : '', fmt(b))
+      );
+    }
+
+    const verdict =
+      d.points_leader === 'me'   ? `Aap ${name} se ${diff.points} pts aage ho 🎉` :
+      d.points_leader === 'them' ? `${name} aapse ${-diff.points} pts aage hai` :
+                                   'Points barabar hain';
+    const next = d.points_to_next_rank != null
+      ? `Aapke upar wale rank tak ${d.points_to_next_rank} pts ka gap hai.`
+      : 'Aap is leaderboard pe #1 ho 🥇';
+
+    cmpBox.replaceChildren(grid, el('p', 'note', verdict), el('p', 'note', next));
+  }
+
   $('leaderboardOpen').addEventListener('click', openLeaderboard);
   $('closeLeaderboard').addEventListener('click',()=>lbModal.hidden=true);
   lbModal.addEventListener('click',e=>{if(e.target===lbModal)lbModal.hidden=true;});
