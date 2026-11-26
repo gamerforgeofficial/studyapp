@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Study Hour Counter</title>
-<meta name="description" content="Study timer with Pomodoro, subjects, streaks, exam countdown and CSV export. Works offline.">
+<meta name="description" content="Study timer with Pomodoro, subject tracking, streaks, exam countdown and optional secure Supabase sync.">
 <meta name="theme-color" content="#0e1116" id="metaTheme">
 <link rel="manifest" href="/manifest.json">
 <style>
@@ -163,14 +163,71 @@ h2{margin:0;font-size:15px;font-weight:700}
   .hist-head{margin:12px 0 6px}
   .toast{bottom:12px}
 }
+
+/* Account and profile */
+.auth-screen{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:var(--bg)}
+.auth-card{width:min(420px,100%);background:var(--card);border:1px solid var(--border);border-radius:22px;padding:24px;box-shadow:var(--shadow)}
+.auth-card h2{font-size:22px;margin-bottom:6px}.auth-card p{color:var(--mut);font-size:13px}
+.auth-card input{width:100%;margin:7px 0}.password-wrap{display:flex;gap:8px;align-items:center}.password-wrap input{flex:1;min-width:0}.password-wrap button{white-space:nowrap;padding:9px 12px;margin:7px 0}.auth-actions{display:flex;gap:8px;margin-top:10px}.auth-actions button{flex:1}
+.auth-error{color:var(--bad)!important;min-height:20px}.profile-btn{margin-right:auto}.top{align-items:center!important}
+.profile-modal{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.62);display:grid;place-items:center;padding:16px}
+.profile-panel{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+.profile-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.profile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.profile-stat{background:var(--card2);border:1px solid var(--border);border-radius:13px;padding:13px}.profile-stat b{display:block;font-size:20px}.profile-stat span{font-size:12px;color:var(--mut)}
+.profile-subjects{margin-top:14px}.profile-subjects .item{margin-top:6px}
+.profile-avatar-wrap{display:flex;align-items:center;gap:14px;padding:12px 0 16px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.profile-avatar{width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--acc);background:var(--card2);display:grid;place-items:center;font-size:30px;flex:0 0 auto}
+.avatar-actions{display:flex;gap:8px;flex-wrap:wrap}.avatar-actions button{padding:8px 12px;font-size:13px}
+.profile-btn{display:flex;align-items:center;gap:8px}.profile-btn img{width:25px;height:25px;border-radius:50%;object-fit:cover}
+
 </style>
 </head>
 <body data-tab="timer">
-<main class="app">
+
+<div class="auth-screen" id="authScreen" hidden>
+  <div class="auth-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>🔐 Account</h2><button type="button" id="closeAuth">✕</button></div>
+    <p>You can use the app as a guest. Sign in to sync your study data across devices.</p>
+    <form id="authForm">
+      <input id="authEmail" type="email" autocomplete="username" placeholder="Email address" required>
+      <div class="password-wrap"><input id="authPassword" type="password" autocomplete="current-password" placeholder="Password (minimum 6 characters)" minlength="6" required><button type="button" id="togglePassword" aria-label="Show password" aria-pressed="false">Show</button></div>
+      <div class="auth-actions"><button class="primary" id="loginBtn" type="submit">Login</button><button id="signupBtn" type="button">Create account</button></div>
+    </form>
+    <p class="auth-error" id="authError" role="alert"></p>
+    <p id="authSetupNote">Supabase configuration is included. Run the supplied SQL setup once before creating your account.</p>
+  </div>
+</div>
+<div class="profile-modal" id="profileModal" hidden>
+  <section class="profile-panel" aria-label="Personal profile">
+    <div class="profile-head"><div><h2>👤 My Profile</h2><p class="muted" id="profileEmail"></p></div><button type="button" id="closeProfile">✕</button></div>
+    <div class="profile-avatar-wrap">
+      <img class="profile-avatar" id="profileAvatar" alt="Your profile picture" hidden>
+      <div class="profile-avatar" id="profileAvatarFallback" aria-hidden="true">👤</div>
+      <div><h2>Profile picture</h2><p class="note">Choose a picture from your device.</p>
+        <div class="avatar-actions"><button type="button" id="changeAvatarBtn" class="primary">Change photo</button><button type="button" id="removeAvatarBtn">Remove</button></div>
+        <input type="file" id="avatarFile" accept="image/*" hidden>
+      </div>
+    </div>
+    <div class="profile-grid">
+      <div class="profile-stat"><b id="pTotal">0h</b><span>Total study time</span></div>
+      <div class="profile-stat"><b id="pToday">0m</b><span>Today's study</span></div>
+      <div class="profile-stat"><b id="pWeek">0m</b><span>Last 7 days</span></div>
+      <div class="profile-stat"><b id="pStreak">0 days 🔥</b><span>Current streak</span></div>
+      <div class="profile-stat"><b id="pSessions">0</b><span>Total sessions</span></div>
+      <div class="profile-stat"><b id="pSubjects">0</b><span>Subjects studied</span></div>
+    </div>
+    <div class="profile-subjects"><h2>Subject-wise hours</h2><div id="profileSubjectList"></div></div>
+    <div class="auth-actions"><button type="button" id="accountBtn" class="primary">Sign in / Create account</button><button type="button" id="logoutBtn" hidden>Logout</button></div>
+    <p class="note" id="profileAccountNote">Guest data is saved on this device. Sign in to back it up to your account.</p>
+  </section>
+</div>
+
+<main class="app" id="studyApp" hidden>
   <header class="top">
+    <button type="button" class="profile-btn" id="profileBtn">👤 Profile</button>
     <div>
       <h1>⏱️ Study Hour Counter</h1>
-      <p class="muted">Stopwatch, Pomodoro, subject-wise record, streak aur exam countdown. Offline bhi chalta hai.</p>
+      <p class="muted">Stopwatch, Pomodoro, subject tracking, study streaks, and exam countdown. Works offline too.</p>
     </div>
     <div class="tools">
       <button type="button" id="installBtn" class="install" hidden>📲 Install</button>
@@ -185,7 +242,7 @@ h2{margin:0;font-size:15px;font-weight:700}
         <button type="button" id="pmBtn" aria-pressed="false">🍅 Pomodoro</button>
       </div>
 
-      <input class="subj" id="sub" list="subs" maxlength="30" placeholder="Subject likho (jaise Maths)" aria-label="Subject">
+      <input class="subj" id="sub" list="subs" maxlength="30" placeholder="Enter a subject (e.g. Maths)" aria-label="Subject">
       <datalist id="subs"></datalist>
 
       <div class="dial">
@@ -209,12 +266,12 @@ h2{margin:0;font-size:15px;font-weight:700}
         <label>Break<input id="brk" type="number" min="1" max="60" inputmode="numeric"> min</label>
       </div>
 
-      <label class="check"><input type="checkbox" id="wake"> 📱 Timer chalte waqt screen on rakho</label>
+      <label class="check"><input type="checkbox" id="wake"> 📱 Keep screen on while timer is running</label>
       <p class="hint" id="wakeNote"></p>
-      <p class="hint">Power button se phone lock karne par browser web page ke timers rok sakta hai. Time phir bhi sahi count hota hai, phone kholne par sahi dikhega.</p>
+      <p class="hint">Locking your phone may pause browser timers. Your study time will be corrected when you return to the page.</p>
 
       <form class="manual" id="manualForm">
-        <input id="mins" type="number" inputmode="numeric" min="1" max="1440" placeholder="Minutes add karo" aria-label="Minutes to add">
+        <input id="mins" type="number" inputmode="numeric" min="1" max="1440" placeholder="Add minutes" aria-label="Minutes to add">
         <input id="mdate" type="date" aria-label="Date for manual entry">
         <button type="submit" class="active">➕ Add</button>
       </form>
@@ -223,8 +280,8 @@ h2{margin:0;font-size:15px;font-weight:700}
 
     <aside aria-label="Stats and history">
       <div class="stats">
-        <div class="stat"><b id="today">0m</b><span>Aaj</span></div>
-        <div class="stat"><b id="week">0m</b><span>7 din</span></div>
+        <div class="stat"><b id="today">0m</b><span>Today</span></div>
+        <div class="stat"><b id="week">0m</b><span>Last 7 days</span></div>
         <div class="stat"><b id="streak">0</b><span>🔥 Streak</span></div>
         <div class="stat"><b id="total">0m</b><span>Total</span></div>
       </div>
@@ -239,14 +296,14 @@ h2{margin:0;font-size:15px;font-weight:700}
 
       <div class="card">
         <div class="line">
-          <input id="exName" type="text" maxlength="40" placeholder="Exam ka naam" aria-label="Exam name">
+          <input id="exName" type="text" maxlength="40" placeholder="Exam name" aria-label="Exam name">
           <input id="exDate" type="date" aria-label="Exam date">
         </div>
         <p class="note" id="examNote"></p>
       </div>
 
       <div class="card">
-        <h2>Is hafte</h2>
+        <h2>This Week</h2>
         <div class="chart" id="chart"></div>
         <div class="subwk" id="subWeek"></div>
       </div>
@@ -272,10 +329,93 @@ h2{margin:0;font-size:15px;font-weight:700}
   <button type="button" id="toastBtn" hidden>Undo</button>
 </div>
 
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (() => {
-  const KEY = 'study_hour_counter';   // same key as before, so old history carries over
-  const TKEY = 'study_hour_timer';
+  // Replace these two values with: Supabase Dashboard > Project Settings > API.
+  const SUPABASE_URL = 'https://hhgcvefxwhqjcgmfqgqy.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_2X0vhXjV0omgKoX791IKsA_m2qQXA--';
+  const $ = id => document.getElementById(id);
+  const screen = $('authScreen'), app = $('studyApp'), error = $('authError');
+  let resolveReady;
+  window.studyAuthReady = new Promise(resolve => { resolveReady = resolve; });
+  const configured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('YOUR_') && !SUPABASE_ANON_KEY.includes('YOUR_');
+  if (!configured || !window.supabase) {
+    error.textContent = 'Unable to connect to Supabase. Guest mode is still available; check your internet connection or project settings to use accounts.';
+    $('loginBtn').disabled = true; $('signupBtn').disabled = true;
+    screen.hidden = true; app.hidden = false;
+    resolveReady(null); return;
+  }
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window.studySupabase = client;
+  let busy = false;
+  $('togglePassword').addEventListener('click', () => {
+    const field = $('authPassword');
+    const reveal = field.type === 'password';
+    field.type = reveal ? 'text' : 'password';
+    $('togglePassword').textContent = reveal ? 'Hide' : 'Show';
+    $('togglePassword').setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+    $('togglePassword').setAttribute('aria-pressed', String(reveal));
+  });
+  async function enter(user) {
+    if (!user) return;
+    const key = 'study_hour_counter_' + user.id, timerKey = 'study_hour_timer_' + user.id;
+    const { data, error: loadError } = await client.from('study_data').select('data').eq('user_id', user.id).maybeSingle();
+    if (loadError) { error.textContent = 'Data load error: ' + loadError.message; screen.hidden = true; app.hidden = false; resolveReady(null); return; }
+    try {
+      if (data?.data?.study) localStorage.setItem(key, JSON.stringify(data.data.study));
+      if (data?.data?.timer) localStorage.setItem(timerKey, JSON.stringify(data.data.timer));
+    } catch {}
+    window.studyUser = user;
+    screen.hidden = true;
+    app.hidden = false; // Show the app when an existing Supabase session is restored.
+    resolveReady(user);
+  }
+  async function finishLogin(user) {
+    if (window.studyMigrateGuestToAccount) {
+      error.textContent = 'Securing your guest study data…';
+      const result = await window.studyMigrateGuestToAccount(user);
+      if (!result?.ok) { error.textContent = result?.message || 'Could not transfer guest data. Your local data is still محفوظ.'; return; }
+    }
+    location.reload();
+  }
+  $('authForm').addEventListener('submit', async e => {
+    e.preventDefault(); if (busy) return;
+    busy = true; error.textContent = 'Signing in…';
+    const { data, error: e1 } = await client.auth.signInWithPassword({ email: $('authEmail').value.trim(), password: $('authPassword').value });
+    if (e1) { error.textContent = e1.message; busy = false; return; }
+    await finishLogin(data.user); busy = false;
+  });
+  $('signupBtn').addEventListener('click', async () => {
+    if (busy) return;
+    const email = $('authEmail').value.trim(), password = $('authPassword').value;
+    if (!email || password.length < 6) { error.textContent = 'Enter a valid email address and a password with at least 6 characters.'; return; }
+    busy = true; error.textContent = 'Creating account…';
+    const { data, error: e1 } = await client.auth.signUp({ email, password });
+    if (e1) { error.textContent = e1.message; busy = false; return; }
+    if (data.session && data.user) await finishLogin(data.user);
+    else error.textContent = 'Account created. Check your email for the verification link. Your guest data stays on this device until you sign in.';
+    busy = false;
+  });
+  $('closeAuth').addEventListener('click', () => { screen.hidden = true; });
+  $('accountBtn').addEventListener('click', () => { $('profileModal').hidden = true; error.textContent = ''; screen.hidden = false; });
+  $('logoutBtn').addEventListener('click', async () => { await client.auth.signOut(); location.reload(); });
+  client.auth.getSession().then(({ data, error: e1 }) => {
+    if (e1) { error.textContent = e1.message; screen.hidden = true; app.hidden = false; resolveReady(null); }
+    else if (data.session) enter(data.session.user);
+    else { screen.hidden = true; app.hidden = false; resolveReady(null); }
+  });
+})();
+</script>
+
+<script>
+(async () => {
+  const signedInUser = await window.studyAuthReady;
+  // Guest mode is the default: initialise the complete app even without an account.
+  const KEY = signedInUser ? 'study_hour_counter_' + signedInUser.id : 'study_hour_counter';
+  const TKEY = signedInUser ? 'study_hour_timer_' + signedInUser.id : 'study_hour_timer';
+  let accountUser = signedInUser;
   const DEFAULT_SUBS = ['Maths', 'Science', 'English', 'Hindi', 'Revision'];
   const $ = id => document.getElementById(id);
   const pad = n => String(n).padStart(2, '0');
@@ -313,13 +453,58 @@ h2{margin:0;font-size:15px;font-weight:700}
   if (!D.mode) D.mode = 'sw';
   if (D.wake === undefined) D.wake = isPhone();
   D.exam = D.exam || { name: '', date: '' };
-  const persist = () => write(KEY, D);
+  let cloudSaveTimer = null;
+  const cloudSave = () => {
+    if (!accountUser) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(async () => {
+      try {
+        const payload = { study: D, timer: T };
+        const { error } = await window.studySupabase.from('study_data').upsert({ user_id: accountUser.id, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (error) toast('Cloud save error: ' + error.message);
+      } catch (e) { toast('Cloud save failed. Check your internet connection.'); }
+    }, 500);
+  };
+  const persist = () => { write(KEY, D); cloudSave(); };
 
   // ---- timer state: timestamp based, so it stays correct in background, locked phone and after reloads ----
   let T = read(TKEY, null) || {};
   T = { base: Number(T.base) || 0, startedAt: Number(T.startedAt) || null, phase: T.phase === 'break' ? 'break' : 'focus' };
   let ticker = null, todaySaved = 0, actx = null, wakeLock = null, asking = false;
-  const persistTimer = () => write(TKEY, T);
+  const persistTimer = () => { write(TKEY, T); cloudSave(); };
+  window.studyDataReady = Promise.resolve(true);
+  window.studyMigrateGuestToAccount = async user => {
+    if (!user || !window.studySupabase) return { ok:false, message:'Account connection is unavailable.' };
+    try {
+      const guestStudy = read('study_hour_counter', null);
+      const guestTimer = read('study_hour_timer', null);
+      const { data: remote, error: readError } = await window.studySupabase.from('study_data').select('data').eq('user_id', user.id).maybeSingle();
+      if (readError) return { ok:false, message:'Could not read account data: ' + readError.message };
+      const remoteStudy = remote?.data?.study || {};
+      const mergedStudy = { ...remoteStudy, ...(guestStudy || {}) };
+      const logs = new Map();
+      for (const item of [...(Array.isArray(remoteStudy.logs) ? remoteStudy.logs : []), ...(Array.isArray(guestStudy?.logs) ? guestStudy.logs : [])]) {
+        if (item && item.id) logs.set(item.id, item);
+      }
+      mergedStudy.logs = [...logs.values()].sort((a,b) => String(b.date).localeCompare(String(a.date)));
+      const hasGuestTimer = guestTimer && (Number(guestTimer.base) > 0 || guestTimer.startedAt);
+      const mergedTimer = hasGuestTimer ? guestTimer : (remote?.data?.timer || T);
+      const payload = { study: mergedStudy, timer: mergedTimer };
+      const { error: saveError } = await window.studySupabase.from('study_data').upsert({ user_id:user.id, data:payload, updated_at:new Date().toISOString() }, { onConflict:'user_id' });
+      if (saveError) return { ok:false, message:'Could not save migrated data: ' + saveError.message };
+      localStorage.setItem('study_hour_counter_' + user.id, JSON.stringify(mergedStudy));
+      localStorage.setItem('study_hour_timer_' + user.id, JSON.stringify(mergedTimer));
+      localStorage.removeItem('study_hour_counter');
+      localStorage.removeItem('study_hour_timer');
+      return { ok:true };
+    } catch (err) { return { ok:false, message:'Data transfer failed: ' + (err?.message || 'Unknown error') } }
+  };
+  // If a user already has an active session from an older version, migrate any leftover guest data once.
+  if (signedInUser && (localStorage.getItem('study_hour_counter') || localStorage.getItem('study_hour_timer'))) {
+    const migrated = await window.studyMigrateGuestToAccount(signedInUser);
+    if (migrated.ok) { location.reload(); return; }
+    console.warn(migrated.message);
+  }
   const isRunning = () => T.startedAt !== null;
   const elapsed = () => T.base + (isRunning() ? Math.max(0, Date.now() - T.startedAt) / 1000 : 0);
   const secs = () => Math.floor(elapsed());
@@ -340,7 +525,7 @@ h2{margin:0;font-size:15px;font-weight:700}
         logSession(D.foc * 60, subj());
         notify('Focus complete 🎉', `${D.brk} min ka break lo.`);
       } else {
-        notify('Break khatam ☕', 'Ab focus shuru karo.');
+        notify('Break finished ☕', 'Start your next focus session.');
       }
       beep();
       T = { base: 0, startedAt: Date.now() - over * 1000, phase: T.phase === 'focus' ? 'break' : 'focus' };
@@ -372,9 +557,9 @@ h2{margin:0;font-size:15px;font-weight:700}
     $('swBtn').setAttribute('aria-pressed', D.mode === 'sw');
     $('pmBtn').setAttribute('aria-pressed', D.mode === 'pomo');
     $('pomoSet').hidden = D.mode !== 'pomo';
-    $('status').textContent = running ? (D.mode === 'pomo' ? 'Focus chal raha hai. Bas padho 📚' : 'Study chal raha hai. Focus rakho 📚')
-      : s ? 'Paused. Save karo ya Start karke continue karo'
-      : touch() ? 'Start dabao, timer chalega' : 'Start dabao ya Space press karo';
+    $('status').textContent = running ? (D.mode === 'pomo' ? 'Focus session in progress. Keep going 📚' : 'Study session in progress. Stay focused 📚')
+      : s ? 'Paused. Save your session or press Start to continue.'
+      : touch() ? 'Press Start to begin the timer.' : 'Press Start or Space to begin.';
     keepAwake();
     paint();
   }
@@ -396,12 +581,12 @@ h2{margin:0;font-size:15px;font-weight:700}
     pause();
     const sec = secs();
     if (D.mode === 'pomo') return;
-    if (sec < 60) return toast('1 minute se kam hai, save nahi hua');
+    if (sec < 60) return toast('Less than one minute. Nothing was saved.');
     const sub = subj();
     logSession(sec, sub);
     T = { base: 0, startedAt: null, phase: 'focus' };
     persistTimer(); render(); syncTimer();
-    toast(`✅ ${durStr(sec)} • ${sub} save ho gaya`);
+    toast(`✅ ${durStr(sec)} • ${sub} saved`);
   }
 
   function resetTimer() {
@@ -413,7 +598,7 @@ h2{margin:0;font-size:15px;font-weight:700}
 
   function setMode(m) {
     if (D.mode === m) return;
-    if (isRunning() || elapsed() > 0) return toast('Pehle Reset karo, phir mode badlo');
+    if (isRunning() || elapsed() > 0) return toast('Reset the timer before changing modes.');
     D.mode = m; T = { base: 0, startedAt: null, phase: 'focus' };
     persist(); persistTimer(); syncTimer();
   }
@@ -463,22 +648,22 @@ h2{margin:0;font-size:15px;font-weight:700}
   }
   function wakeNote() {
     const n = $('wakeNote');
-    if (!('wakeLock' in navigator)) n.textContent = 'Is browser mein screen-on support nahi hai.';
-    else n.textContent = wakeLock ? 'Screen on hai, timer chal raha hai.'
-      : D.wake ? 'Timer start karte hi screen on rahegi.'
-      : 'Screen apne aap band ho sakti hai.';
+    if (!('wakeLock' in navigator)) n.textContent = 'This browser does not support keeping the screen on.';
+    else n.textContent = wakeLock ? 'Screen is on while the timer is running.'
+      : D.wake ? 'The screen will stay on when the timer starts.'
+      : 'The screen may turn off automatically.';
   }
 
   // ---- manual entry ----
   $('manualForm').addEventListener('submit', e => {
     e.preventDefault();
     const m = Math.round(Number($('mins').value)), date = $('mdate').value || dayKey();
-    if (!(m >= 1 && m <= 1440)) return toast('1 se 1440 minutes ke beech likho');
-    if (date > dayKey()) return toast('Future date allowed nahi hai');
+    if (!(m >= 1 && m <= 1440)) return toast('Enter a value between 1 and 1440 minutes.');
+    if (date > dayKey()) return toast('Future dates are not allowed.');
     D.logs.unshift({ id: uid(), date, sec: m * 60, at: 'Manual', sub: subj() });
     persist(); render();
     $('mins').value = '';
-    toast(`➕ ${durStr(m * 60)} • ${subj()} add ho gaya`);
+    toast(`➕ ${durStr(m * 60)} • ${subj()} added`);
   });
 
   // ---- history ----
@@ -487,7 +672,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     if (i < 0) return;
     const [gone] = D.logs.splice(i, 1);
     persist(); render();
-    toast(`🗑️ ${durStr(gone.sec)} delete ho gaya`, () => { D.logs.splice(i, 0, gone); persist(); render(); });
+    toast(`🗑️ ${durStr(gone.sec)} deleted`, () => { D.logs.splice(i, 0, gone); persist(); render(); });
   }
 
   function renderStats(byDay) {
@@ -507,13 +692,13 @@ h2{margin:0;font-size:15px;font-weight:700}
     $('week').textContent = durStr(w);
     $('streak').textContent = streak;
     $('total').textContent = durStr(all);
-    $('goalNote').textContent = t >= goalSec ? '🎉 Aaj ka goal complete!' : `Aaj ${durStr(goalSec - t)} aur chahiye`;
+    $('goalNote').textContent = t >= goalSec ? '🎉 Daily goal completed!' : `You need ${durStr(goalSec - t)} more today`;
     $('count').textContent = `${D.logs.length} sessions`;
     const ex = D.exam;
     let note = '';
     if (ex.date) {
       const days = Math.round((parseDay(ex.date) - parseDay(today)) / 864e5), nm = ex.name || 'Exam';
-      note = days > 0 ? `${nm} mein ${days} din baaki` : days === 0 ? `${nm} aaj hai, all the best! 💪` : `${nm} ho chuka hai`;
+      note = days > 0 ? `${days} days left until ${nm}` : days === 0 ? `${nm} is today. Good luck! 💪` : `${nm} has passed`;
     }
     $('examNote').textContent = note;
   }
@@ -545,7 +730,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     const wk = daysAgo(6), today = dayKey(), tot = {};
     for (const l of D.logs) if (l.date >= wk && l.date <= today) tot[l.sub] = (tot[l.sub] || 0) + l.sec;
     const rows = Object.entries(tot).sort((a, b) => b[1] - a[1]);
-    if (!rows.length) { box.append(el('p', 'empty', 'Is hafte koi subject record nahi hua.')); return; }
+    if (!rows.length) { box.append(el('p', 'empty', 'No subject records for this week.')); return; }
     for (const [n, s] of rows) {
       const row = el('div', 'item');
       row.append(el('span', '', n), el('span', 'dur', durStr(s)));
@@ -556,7 +741,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   function renderLog() {
     const box = $('log');
     box.replaceChildren();
-    if (!D.logs.length) { box.append(el('p', 'empty', 'Abhi koi session record nahi hua. Pehla session start karo!')); return; }
+    if (!D.logs.length) { box.append(el('p', 'empty', 'No study sessions yet. Start your first session!')); return; }
     const sorted = [...D.logs].sort((a, b) => b.date.localeCompare(a.date));
     for (const l of sorted) {
       const del = el('button', 'icon', '✕');
@@ -582,7 +767,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   }
 
   function exportCSV() {
-    if (!D.logs.length) return toast('Export ke liye koi record nahi hai');
+    if (!D.logs.length) return toast('There are no records to export.');
     const rows = [['date', 'subject', 'minutes', 'time'], ...D.logs.map(l => [l.date, l.sub, (l.sec / 60).toFixed(1), l.at])];
     const csv = '\ufeff' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -608,6 +793,29 @@ h2{margin:0;font-size:15px;font-weight:700}
   $('swBtn').addEventListener('click', () => setMode('sw'));
   $('pmBtn').addEventListener('click', () => setMode('pomo'));
   $('csvBtn').addEventListener('click', exportCSV);
+
+  $('profileEmail').textContent = signedInUser?.email || 'Guest mode • Data saved on this device';
+  $('logoutBtn').hidden = !signedInUser;
+  $('accountBtn').hidden = !!signedInUser;
+  $('profileAccountNote').textContent = signedInUser ? 'Your study records are linked to this email account and synced securely.' : 'Guest data is saved on this device. Sign in or create an account to securely transfer it and access it on other devices.';
+  $('profileBtn').addEventListener('click', () => {
+    const todayKey = dayKey(), bySubject = {}, byDay = {};
+    for (const l of D.logs) { bySubject[l.sub] = (bySubject[l.sub] || 0) + l.sec; byDay[l.date] = (byDay[l.date] || 0) + l.sec; }
+    let total = D.logs.reduce((a,l) => a + l.sec, 0), week = 0;
+    for (let i=0;i<7;i++) week += byDay[daysAgo(i)] || 0;
+    let streak=0, d=new Date(); if ((byDay[todayKey]||0) < D.goal*60) d.setDate(d.getDate()-1);
+    while ((byDay[dayKey(d)]||0) >= D.goal*60) { streak++; d.setDate(d.getDate()-1); }
+    $('pTotal').textContent = durStr(total); $('pToday').textContent = durStr(byDay[todayKey]||0);
+    $('pWeek').textContent = durStr(week); $('pStreak').textContent = streak + ' days 🔥';
+    $('pSessions').textContent = D.logs.length; $('pSubjects').textContent = Object.keys(bySubject).length;
+    const list = $('profileSubjectList'); list.replaceChildren();
+    Object.entries(bySubject).sort((a,b)=>b[1]-a[1]).forEach(([name,sec]) => list.append(el('div','item',`${name} • ${durStr(sec)}`)));
+    if (!list.children.length) list.append(el('p','empty','No subject records yet.'));
+    $('profileModal').hidden = false;
+  });
+  $('closeProfile').addEventListener('click', () => $('profileModal').hidden = true);
+  $('profileModal').addEventListener('click', e => { if (e.target === $('profileModal')) $('profileModal').hidden = true; });
+
   document.addEventListener('keydown', e => {
     if (e.code !== 'Space' || e.repeat || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
     e.preventDefault();
