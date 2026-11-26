@@ -187,6 +187,12 @@ h2{margin:0;font-size:15px;font-weight:700}
 .cmp-label{color:var(--mut);text-align:left}
 .cmp-win{color:var(--ok);font-weight:700}
 @media (max-width:760px){.cmp-grid{font-size:13px;gap:8px 6px}}
+/* Display name box */
+.name-box{margin-bottom:14px}
+.name-row{display:flex;gap:8px;margin-top:8px}
+.name-row input{flex:1;min-width:0}
+.name-row button{white-space:nowrap}
+@media (max-width:760px){.name-row input,.name-row button{min-height:44px}}
 </style>
 </head>
 <body data-tab="timer">
@@ -214,6 +220,15 @@ h2{margin:0;font-size:15px;font-weight:700}
         <div class="avatar-actions"><button type="button" id="changeAvatarBtn" class="primary">Change photo</button><button type="button" id="removeAvatarBtn">Remove</button></div>
         <input type="file" id="avatarFile" accept="image/*" hidden>
       </div>
+    </div>
+    <div class="name-box">
+      <h2>Display name</h2>
+      <p class="note">Leaderboard par ye naam dikhega. User ID: <b id="publicIdText">—</b> (fixed hai, badli nahi ja sakti)</p>
+      <div class="name-row">
+        <input id="nameInput" type="text" maxlength="24" placeholder="Apna naam" aria-label="Display name">
+        <button type="button" id="nameSaveBtn" class="primary">Save</button>
+      </div>
+      <p class="note" id="nameNote"></p>
     </div>
     <div class="profile-grid">
       <div class="profile-stat"><b id="pTotal">0h</b><span>Total study time</span></div>
@@ -843,7 +858,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   };
   async function loadMyPublicProfile() {
     if (!accountUser || !window.studySupabase) return null;
-    const { data, error } = await window.studySupabase.from('public_profiles').select('user_id,public_id,display_name,avatar_url').eq('user_id', accountUser.id).maybeSingle();
+    const { data, error } = await window.studySupabase.from('public_profiles').select('user_id,public_id,display_name,avatar_url,name_changed_at').eq('user_id', accountUser.id).maybeSingle();
     if (error) throw error;
     return data;
   }
@@ -976,6 +991,7 @@ h2{margin:0;font-size:15px;font-weight:700}
   if (signedInUser) {
     loadMyPublicProfile().then(profile => {
       publicProfileCache = profile;
+      refreshNameUI(profile);
       if (profile) avatarFallback($('profileAvatar'),$('profileAvatarFallback'),profile.avatar_url);
     }).catch(err => console.warn('Public profile load:',err.message));
   }
@@ -1009,6 +1025,45 @@ h2{margin:0;font-size:15px;font-weight:700}
       avatarFallback($('profileAvatar'),$('profileAvatarFallback'),null); if(publicProfileCache)publicProfileCache.avatar_url=null; toast('Profile picture removed from public profile.');
     }catch(err){toast('Could not update profile: '+(err?.message||''));}
   });
+  // ---- display name: 3 din me ek baar badal sakte hain, user ID fixed hai ----
+  const NAME_COOLDOWN_DAYS = 3; // SQL ke set_my_display_name me bhi same interval rakhna
+  function refreshNameUI(profile) {
+    const input = $('nameInput'), save = $('nameSaveBtn'), note = $('nameNote');
+    if (!signedInUser) {
+      input.disabled = true; save.disabled = true;
+      note.textContent = 'Naam badalne ke liye sign in karo.';
+      return;
+    }
+    if (profile) {
+      if (document.activeElement !== input) input.value = profile.display_name || '';
+      $('publicIdText').textContent = profile.public_id || '—';
+    }
+    const last = profile?.name_changed_at ? new Date(profile.name_changed_at) : null;
+    const nextAt = last ? new Date(last.getTime() + NAME_COOLDOWN_DAYS * 864e5) : null;
+    const locked = !!nextAt && nextAt > new Date();
+    input.disabled = locked;
+    save.disabled = locked;
+    note.textContent = locked
+      ? `Agla naam change: ${nextAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : `Naam ${NAME_COOLDOWN_DAYS} din me sirf ek baar badal sakte ho.`;
+  }
+  $('nameSaveBtn').addEventListener('click', async () => {
+    const name = $('nameInput').value.trim().replace(/\s+/g, ' ');
+    if (name.length < 2 || name.length > 24) { toast('Naam 2 se 24 characters ka hona chahiye.'); return; }
+    $('nameSaveBtn').disabled = true;
+    try {
+      const { data, error } = await window.studySupabase.rpc('set_my_display_name', { p_name: name });
+      if (error) throw error;
+      publicProfileCache = { ...(publicProfileCache || {}), ...data };
+      refreshNameUI(publicProfileCache);
+      toast('Naam save ho gaya ✅');
+    } catch (err) {
+      toast(err?.message || 'Naam save nahi ho paya.');
+      refreshNameUI(publicProfileCache);
+    }
+  });
+  refreshNameUI(null);
+
   $('profileBtn').addEventListener('click', () => {
     const todayKey = dayKey(), bySubject = {}, byDay = {};
     for (const l of D.logs) { bySubject[l.sub] = (bySubject[l.sub] || 0) + l.sec; byDay[l.date] = (byDay[l.date] || 0) + l.sec; }
@@ -1023,7 +1078,7 @@ h2{margin:0;font-size:15px;font-weight:700}
     Object.entries(bySubject).sort((a,b)=>b[1]-a[1]).forEach(([name,sec]) => list.append(el('div','item',`${name} • ${durStr(sec)}`)));
     if (!list.children.length) list.append(el('p','empty','No subject records yet.'));
     $('profileModal').hidden = false;
-    if (signedInUser) loadMyPublicProfile().then(profile=>{publicProfileCache=profile;if(profile)avatarFallback($('profileAvatar'),$('profileAvatarFallback'),profile.avatar_url);}).catch(()=>{});
+    if (signedInUser) loadMyPublicProfile().then(profile=>{publicProfileCache=profile;refreshNameUI(profile);if(profile)avatarFallback($('profileAvatar'),$('profileAvatarFallback'),profile.avatar_url);}).catch(()=>{});
   });
   $('closeProfile').addEventListener('click', () => $('profileModal').hidden = true);
   $('profileModal').addEventListener('click', e => { if (e.target === $('profileModal')) $('profileModal').hidden = true; });
